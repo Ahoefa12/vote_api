@@ -5,7 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Candidat;
 use Illuminate\Http\Request;
-use PhpParser\Node\Stmt\TryCatch;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class CandidatController extends Controller
 {
@@ -51,10 +52,32 @@ class CandidatController extends Controller
                 "height" => "nullable",
                 "shortDescription" => "nullable",
                 "fullDescription" => "nullable",
-                "profilePhoto" => "nullable",
+                "profilePhoto" => "nullable|image|mimes:jpeg,png,jpg,gif|max:5120" // 5MB max
             ]);
 
-            $candidat = Candidat::create($data);
+            // PARTIE profilePhoto
+            $imagePath = null;
+            if ($request->hasFile('profilePhoto')) {
+                $photo = $request->file('profilePhoto');
+                $extension = $photo->getClientOriginalExtension();
+                $baseName = Str::slug($data['firstName'] . '_' . $data['lastName']);
+                $timestamp = now()->timestamp;
+                $random = Str::random(8);
+                $fileName = "{$baseName}_{$timestamp}_{$random}.{$extension}";
+                $imagePath = $photo->storeAs('candidats_images', $fileName, 'public');
+            }
+
+            $candidat = Candidat::create([
+                "lastName" => $request->lastName,
+                "firstName" => $request->firstName,
+                "nationality" => $request->nationality,
+                "age" => $request->age,
+                "weight" => $request->weight,
+                "height" => $request->height,
+                "shortDescription" => $request->shortDescription,
+                "fullDescription" => $request->fullDescription,
+                "profilePhoto" => $imagePath,
+            ]);
             return response()->json([
                 'success' => true,
                 'message' => 'Candidat crée avec succès',
@@ -98,10 +121,6 @@ class CandidatController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    // app/Http/Controllers/Api/CandidatController.php
-
-    // app/Http/Controllers/Api/CandidatController.php
-
     public function update(Request $request, string $id)
     {
         try {
@@ -114,8 +133,27 @@ class CandidatController extends Controller
                 "height" => "nullable",
                 "shortDescription" => "nullable|string",
                 "fullDescription" => "nullable|string",
-                "profilePhoto" => "nullable",
+                "profilePhoto" => "nullable|image|mimes:jpeg,png,jpg,gif|max:5120" // 5MB max
             ]);
+
+            // PARTIE profilePhoto
+            if ($request->hasFile('profilePhoto')) {
+                $candidat = Candidat::findOrFail($id);
+                
+                // Supprimer l'ancienne photo si elle existe
+                if ($candidat->profilePhoto && Storage::disk('public')->exists($candidat->profilePhoto)) {
+                    Storage::disk('public')->delete($candidat->profilePhoto);
+                }
+                
+                // Créer la nouvelle photo avec nom unique
+                $photo = $request->file('profilePhoto');
+                $extension = $photo->getClientOriginalExtension();
+                $baseName = Str::slug(($data['firstName'] ?? $candidat->firstName) . '_' . ($data['lastName'] ?? $candidat->lastName));
+                $timestamp = now()->timestamp;
+                $random = Str::random(8);
+                $fileName = "{$baseName}_{$timestamp}_{$random}.{$extension}";
+                $data['profilePhoto'] = $photo->storeAs('candidats_images', $fileName, 'public');
+            }
 
             $candidat = Candidat::findOrFail($id);
 
@@ -152,7 +190,14 @@ class CandidatController extends Controller
     public function destroy(string $id)
     {
         try {
-            Candidat::findOrFail($id)->delete();
+            $candidat = Candidat::findOrFail($id);
+            
+            // PARTIE profilePhoto  - Supprimer la photo du stockage
+            if ($candidat->profilePhoto && Storage::disk('public')->exists($candidat->profilePhoto)) {
+                Storage::disk('public')->delete($candidat->profilePhoto);
+            }
+            
+            $candidat->delete();
             return response()->json([
                 'success' => true,
                 'message' => 'Candidat supprimé avec succès',
