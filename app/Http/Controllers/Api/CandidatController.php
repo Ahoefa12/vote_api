@@ -131,13 +131,26 @@ class CandidatController extends Controller
                 "profilePhoto" => "nullable|image|mimes:jpeg,png,jpg,gif|max:5120" // 5MB max
             ]);
 
+            $imagePath = null;
             if ($request->hasFile('profilePhoto')) {
-                $data['profilePhoto'] = $request->file('profilePhoto')->store('candidats_images', 'public');
+                $imagePath = $request->file('profilePhoto')->store('candidats_images', 'public');
             }
+
+
 
             $candidat = Candidat::findOrFail($id);
 
-            $candidat->update($data);
+            $candidat->update([
+                "lastName" => $request->lastName,
+                "firstName" => $request->firstName,
+                "nationality" => $request->nationality,
+                "age" => $request->age,
+                "weight" => $request->weight,
+                "height" => $request->height,
+                "shortDescription" => $request->shortDescription,
+                "fullDescription" => $request->fullDescription,
+                "profilePhoto" => $imagePath,
+            ]);
 
             return response()->json([
                 'success' => true,
