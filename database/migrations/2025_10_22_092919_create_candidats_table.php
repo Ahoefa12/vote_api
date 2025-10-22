@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('lastName');
             $table->string('firstName');
             $table->string('nationality');
-            $table->int('age');
+            $table->integer('age');
             $table->float('weight')->nullable();
             $table->float('height')->nullable();
             $table->text('shortDescription')->nullable();
